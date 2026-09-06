@@ -1,0 +1,2 @@
+*.exe
+/loadtest/results/*.bin
