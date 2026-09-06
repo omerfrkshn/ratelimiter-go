@@ -37,7 +37,7 @@ func RateLimit(cfg Config) func(http.Handler) http.Handler {
 			if !cfg.Limiter.Allow(key) {
 				w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 				w.WriteHeader(http.StatusTooManyRequests)
-				w.Write([]byte(message))
+				_, _ = w.Write([]byte(message))
 				return
 			}
 			next.ServeHTTP(w, r)

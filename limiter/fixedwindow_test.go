@@ -62,7 +62,10 @@ func TestFixedWindow_BoundaryBurstIsAllowedByDesign(t *testing.T) {
 	fw.Allow("a") // 2 requests at the end of window 1
 
 	now = now.Add(time.Second) // start of window 2
-	if !fw.Allow("a") || !fw.Allow("a") {
-		t.Fatal("expected 2 more allowed requests in the new window")
+	if !fw.Allow("a") {
+		t.Fatal("expected 3rd request (1st of new window) to be allowed")
+	}
+	if !fw.Allow("a") {
+		t.Fatal("expected 4th request (2nd of new window) to be allowed")
 	}
 }
