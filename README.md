@@ -13,12 +13,12 @@ doğru algoritma iş yüküne bağlı.
 
 | Algoritma | Bellek/anahtar | Hassasiyet | Burst toleransı | Ne zaman kullan |
 |---|---|---|---|---|
-| **Fixed window** | O(1) | Düşük — pencere sınırında 2x'e kadar geçiş olabilir | Yok (istemsiz) | Kabaca yeterli, en ucuz seçenek |
-| **Sliding window log** | O(rate) — her isteğin zaman damgası tutulur | Tam — hiçbir sınır efekti yok | Yok | Doğruluk kritikse ve rate düşükse |
-| **Sliding window counter** | O(1) | Yaklaşık — iki pencereyi ağırlıklandırır | Yok | Log'un doğruluğuna yakın, log'un maliyeti olmadan — pratikte en çok kullanılan |
-| **Token bucket** | O(1) | Ortalama oranı korur | Var — anlık burst'e izin verir | İstemci davranışı "bursty ama iyi niyetli" ise |
+| **Fixed window** | O(1) | Düşük: pencere sınırında 2x'e kadar geçiş olabilir | Yok (istemsiz) | Kabaca yeterli, en ucuz seçenek |
+| **Sliding window log** | O(rate), her isteğin zaman damgası tutulur | Tam, hiçbir sınır efekti yok | Yok | Doğruluk kritikse ve rate düşükse |
+| **Sliding window counter** | O(1) | Yaklaşık: iki pencereyi ağırlıklandırır | Yok | Log'un doğruluğuna yakın, log'un maliyeti olmadan, pratikte en çok kullanılan |
+| **Token bucket** | O(1) | Ortalama oranı korur | Var, anlık burst'e izin verir | İstemci davranışı "bursty ama iyi niyetli" ise |
 
-Ölçülmüş sayılar için bkz. [BENCHMARKS.md](BENCHMARKS.md) — aynı sürdürülebilir
+Ölçülmüş sayılar için bkz. [BENCHMARKS.md](BENCHMARKS.md). Aynı sürdürülebilir
 limitin üzerinde sabit yükte, üç pencere tabanlı algoritma da %50 kabul
 oranında kilitlenirken token bucket başlangıç burst'ü sayesinde %62.3'e
 çıkıyor.
@@ -75,7 +75,7 @@ curl -i http://localhost:8080/
 
 ## Dağıtık mod (Redis)
 
-Tek-node implementasyonların hepsi process belleğinde tutulur — bir load
+Tek-node implementasyonların hepsi process belleğinde tutulur. Bir load
 balancer arkasında N instance varsa, her instance kendi limitini ayrı
 uygular ve gerçek limit N katına çıkar. `redislimiter` paketi bunu, atomik
 bir Lua script ile Redis'te paylaşılan bir sorted set üzerinden çözer:
@@ -120,6 +120,16 @@ go test -tags=integration ./redislimiter/... -race   # Redis gerektirir, docker 
 GitHub Actions her push/PR'da şunları çalıştırır: `go build`, `go test -race`,
 `golangci-lint run`. Bkz. [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
+## Bilinen sınırlamalar
+
+- Bellek-içi limitler boşta kalan anahtarları silmez. Farklı anahtar sayısı arttıkça bellek büyür, temizleme mekanizması yok.
+- Sliding window log (bellek-içi ve Redis sürümü) izin verilen her isteği ayrı saklar. Yüksek `Rate` değerlerinde bellek maliyeti O(rate) olur.
+- Dağıtık mod yalnızca sliding window log'u destekliyor. Diğer üç algoritmanın Redis sürümü yok.
+- Redis modunda zaman damgası uygulama instance'ının saatinden alınıyor. Instance saatleri arasındaki sapma pencereyi etkileyebilir.
+- Redis'e ulaşılamazsa `Allow` hata döner. Açık mı kapalı mı davranılacağına (fail open / fail closed) çağıran kod karar verir.
+- `Rate` ve `Period` değerleri doğrulanmıyor. `Period` için sıfır gibi değerler panik ya da beklenmedik sonuç üretebilir.
+- Yük testi tek anahtar, localhost ve algoritma başına tek çalıştırma ile yapıldı, ayrıntısı [BENCHMARKS.md](BENCHMARKS.md)'de.
+
 ## Lisans
 
-MIT — bkz. [LICENSE](LICENSE).
+MIT, bkz. [LICENSE](LICENSE).

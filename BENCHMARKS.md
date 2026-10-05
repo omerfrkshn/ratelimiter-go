@@ -7,7 +7,7 @@ requests from one client (one rate-limit key).
 ## Method
 
 - Limit: **50 requests / 5s** per key (steady-state sustainable rate: 10 req/s)
-- Load: constant **20 req/s for 20s** — double the sustainable rate, so the
+- Load: constant **20 req/s for 20s**, double the sustainable rate, so the
   limiter is expected to reject roughly half of steady-state traffic
 - Total requests sent: **400** per algorithm
 - Each algorithm run against a fresh server process (no state carried over)
@@ -36,20 +36,29 @@ vegeta attack -targets=loadtest/targets.txt -rate=20/1s -duration=20s -timeout=5
 The three window-based algorithms land on the same accept rate (50%,
 matching sustainable-rate / offered-rate = 10/20) because they all
 converge to *rejecting anything above the average rate* once the initial
-window fills — that's their design goal, not a coincidence.
+window fills. That's their design goal, not a coincidence.
 
 **Token bucket accepts 12 points more traffic (62.3% vs 50%)** because it
 starts with a full bucket of 50 tokens and spends them immediately on the
 first burst, on top of the same steady-state refill rate the others
-enforce. This is the concrete trade-off the brief asked to demonstrate:
+enforce. This is the concrete trade-off between the algorithms:
 token bucket trades strict average-rate enforcement for burst tolerance.
-Whether that's desirable depends on the workload — it's the right choice
+Whether that's desirable depends on the workload. It's the right choice
 for "bursty but well-behaved" clients, the wrong choice if the goal is a
 hard ceiling on sustained throughput.
 
-Latencies are all sub-millisecond at p99 for the in-memory algorithms
-(single mutex + map lookup per request) on localhost; the distributed
-Redis-backed limiter was not included in this load test since its latency
-is dominated by the network/Redis round trip, not the algorithm — see
+Latencies stay low: p99 ranges from 865µs to 1.26ms across the four
+in-memory algorithms (a single mutex + map lookup per request, plus the
+HTTP stack, on localhost). The distributed Redis-backed limiter was not
+included in this load test since its latency is dominated by the
+network/Redis round trip, not the algorithm. See
 [README.md](README.md#dağıtık-mod-redis) for its correctness guarantee
 instead (verified by an integration test, not a load test).
+
+## Limitations
+
+Each algorithm was run once, from a single client key against localhost.
+The latency numbers include the full HTTP round trip through `net/http`,
+so they are not a measurement of the limiter alone, and the differences
+of a few hundred microseconds between algorithms should not be read as a
+ranking.
